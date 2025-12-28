@@ -1,0 +1,68 @@
+# ============================================================================
+# TRACE MCP - .gitignore
+# ============================================================================
+
+# Build output
+dist/
+build/
+*.js
+*.js.map
+*.d.ts
+
+# Dependencies
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# ============================================================================
+# CONTEXT DOCUMENTS - Excluded from git, included for AI agents
+# ============================================================================
+# These files are for agent handoff and context engineering.
+# They should NOT be committed to version control.
+# They live in the repo for local agent consumption only.
+
+# Handoff & Context (agent-only, not committed)
+.context/
+HANDOFF.md
+CONTEXT.md
+SESSION_*.md
+AGENT_NOTES.md
+REVIEW_FINDINGS.md
+
+# Claude/AI settings (local only)
+.claude/
+
+# Vision & Planning (high-level, mutable)
+VISION.md
+ROADMAP.md
+TODO.md
+PLANNING.md
+
+# Do NOT ignore these (they ARE committed):
+# - CORE_TRUTH.md   (immutable scope boundaries)
+# - DESIGN.md       (technical architecture)
+# - README.md       (public documentation)
+
+# ============================================================================
+# Temporary & Local
+# ============================================================================
+.env
+.env.local
+*.local
+tmp/
+temp/
