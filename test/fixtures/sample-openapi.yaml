@@ -1,0 +1,321 @@
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+  description: Sample API for testing OpenAPI adapter
+
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      summary: List all users
+      tags:
+        - users
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: createUser
+      summary: Create a new user
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUser'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      summary: Get a user by ID
+      tags:
+        - users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: include
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum:
+                - profile
+                - settings
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      operationId: updateUser
+      summary: Update a user
+      tags:
+        - users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUser'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteUser
+      summary: Delete a user
+      tags:
+        - users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: User deleted
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: User's full name
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: User's email address
+        age:
+          type: integer
+          minimum: 0
+          maximum: 150
+          description: User's age
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+            - pending
+          description: User account status
+        roles:
+          type: array
+          items:
+            type: string
+          description: User roles
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional user metadata
+        createdAt:
+          type: string
+          format: date-time
+          description: When the user was created
+
+    CreateUser:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        age:
+          type: integer
+          minimum: 0
+          maximum: 150
+        roles:
+          type: array
+          items:
+            type: string
+
+    UpdateUser:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          nullable: true
+        age:
+          type: integer
+          minimum: 0
+          maximum: 150
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+            - pending
+        roles:
+          type: array
+          items:
+            type: string
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    # Schema with composition types for testing
+    CompositeEntity:
+      allOf:
+        - $ref: '#/components/schemas/BaseEntity'
+        - type: object
+          properties:
+            extra:
+              type: string
+
+    BaseEntity:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+      discriminator:
+        propertyName: petType
+
+    Cat:
+      type: object
+      required:
+        - petType
+        - meowVolume
+      properties:
+        petType:
+          type: string
+          enum:
+            - cat
+        meowVolume:
+          type: integer
+
+    Dog:
+      type: object
+      required:
+        - petType
+        - barkVolume
+      properties:
+        petType:
+          type: string
+          enum:
+            - dog
+        barkVolume:
+          type: integer
+
+    # Schema with anyOf for union testing
+    SearchResult:
+      anyOf:
+        - $ref: '#/components/schemas/User'
+        - $ref: '#/components/schemas/Error'

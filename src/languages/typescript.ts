@@ -1,17 +1,41 @@
 /**
- * TypeScript Language Parser - Enhanced
- * 
+ * 🔷 TypeScript Language Parser
+ *
  * Extracts MCP schemas from TypeScript source files using ts-morph.
- * 
- * Supports multiple tool definition patterns:
- * 1. server.tool() - FastMCP / MCP SDK pattern
- * 2. Registry Pattern - Object literal with ToolDefinition entries (ChatRPG)
- * 3. Exported Zod Schemas - Named *Schema exports for tracing
+ * This is an enhanced parser that supports multiple extraction patterns
+ * for both producer schemas (tool definitions) and type definitions.
+ *
+ * Supported extraction patterns:
+ * 1. **server.tool()** - FastMCP / MCP SDK pattern
+ * 2. **Registry Pattern** - Object literal with ToolDefinition entries (ChatRPG)
+ * 3. **Exported Zod Schemas** - Named *Schema exports for tracing
+ * 4. **TypeScript Interfaces** - Exported interface declarations
+ * 5. **Type Aliases** - Exported type definitions
+ * 6. **Enums** - Exported enum declarations
+ *
+ * @module languages/typescript
+ *
+ * @example
+ * ```typescript
+ * import { TypeScriptParser } from './languages/typescript.js';
+ *
+ * const parser = new TypeScriptParser();
+ *
+ * // Extract tool definitions (Zod schemas)
+ * const producers = await parser.extractSchemas({ rootDir: './src' });
+ *
+ * // Extract interfaces and types
+ * const interfaces = await parser.extractInterfaces({ rootDir: './src' });
+ *
+ * // Extract all schemas
+ * const all = await parser.extractAll({ rootDir: './src' });
+ * ```
  */
 
-import { Project, SyntaxKind, Node, CallExpression, SourceFile, ObjectLiteralExpression, PropertyAssignment } from 'ts-morph';
+import { Project, SyntaxKind, Node, CallExpression, SourceFile, ObjectLiteralExpression, PropertyAssignment, Type, InterfaceDeclaration, TypeAliasDeclaration, EnumDeclaration, Symbol as TsSymbol, ts } from 'ts-morph';
 import type { LanguageParser, ExtractOptions, TraceOptions } from './base.js';
 import type { ProducerSchema, ConsumerSchema, JSONSchema, SourceLocation } from '../types.js';
+import type { NormalizedSchema, NormalizedType, PropertyDef, SchemaRef } from '../core/types.js';
 
 // ============================================================================
 // Types for Registry Pattern Detection
@@ -929,5 +953,637 @@ export class TypeScriptParser implements LanguageParser {
     }
 
     return chain;
+  }
+
+  // ==========================================================================
+  // 📋 Interface, Type Alias, and Enum Extraction
+  // ==========================================================================
+
+  /**
+   * Extract interfaces, type aliases, and enums from TypeScript files.
+   *
+   * Scans TypeScript source files and extracts all exported type definitions,
+   * converting them to NormalizedSchema format for schema comparison.
+   *
+   * Supports extraction of:
+   * - **Interfaces** - Including inherited properties from extends
+   * - **Type Aliases** - Object types, unions, intersections, Records
+   * - **Enums** - Both const and regular enums
+   *
+   * @param options - Extraction options specifying root directory and file patterns
+   * @param options.rootDir - Root directory to search for TypeScript files
+   * @param options.include - Optional glob patterns to include (default: `['*.ts', '*.tsx']`)
+   * @param options.exclude - Optional glob patterns to exclude (default: excludes node_modules and dist)
+   * @returns Promise resolving to array of NormalizedSchema for all exported declarations
+   *
+   * @example
+   * ```typescript
+   * const parser = new TypeScriptParser();
+   * const schemas = await parser.extractInterfaces({
+   *   rootDir: './src/types',
+   *   include: ['*.ts'],
+   *   exclude: ['*.test.ts']
+   * });
+   *
+   * // schemas[0] = {
+   * //   name: 'UserProfile',
+   * //   properties: { id: {...}, name: {...} },
+   * //   required: ['id', 'name'],
+   * //   source: { source: 'typescript', id: 'interface:UserProfile@...' },
+   * //   location: { file: '...', line: 10 }
+   * // }
+   * ```
+   */
+  async extractInterfaces(options: ExtractOptions): Promise<NormalizedSchema[]> {
+    const project = new Project({
+      tsConfigFilePath: undefined,
+      skipAddingFilesFromTsConfig: true,
+      compilerOptions: {
+        strict: true,
+        target: ts.ScriptTarget.ESNext,
+        module: ts.ModuleKind.ESNext,
+      },
+    });
+
+    const patterns = options.include || this.filePatterns;
+    const excludePatterns = options.exclude || ['**/node_modules/**', '**/dist/**'];
+
+    project.addSourceFilesAtPaths(
+      patterns.map(p => `${options.rootDir}/${p}`)
+    );
+
+    const schemas: NormalizedSchema[] = [];
+
+    for (const sourceFile of project.getSourceFiles()) {
+      const filePath = sourceFile.getFilePath();
+
+      if (excludePatterns.some(pattern => filePath.includes(pattern.replace('**/', '')))) {
+        continue;
+      }
+
+      // Extract interfaces
+      for (const iface of sourceFile.getInterfaces()) {
+        if (!iface.isExported()) continue;
+
+        const schema = this.convertInterfaceToSchema(iface, filePath);
+        schemas.push(schema);
+      }
+
+      // Extract type aliases
+      for (const typeAlias of sourceFile.getTypeAliases()) {
+        if (!typeAlias.isExported()) continue;
+
+        const schema = this.convertTypeAliasToSchema(typeAlias, filePath);
+        schemas.push(schema);
+      }
+
+      // Extract enums
+      for (const enumDecl of sourceFile.getEnums()) {
+        if (!enumDecl.isExported()) continue;
+
+        const schema = this.convertEnumToSchema(enumDecl, filePath);
+        schemas.push(schema);
+      }
+    }
+
+    return schemas;
+  }
+
+  /**
+   * Extract all schemas from TypeScript files.
+   *
+   * Comprehensive extraction that combines interface/type extraction.
+   * This is the recommended entry point for extracting TypeScript type
+   * definitions for schema comparison workflows.
+   *
+   * @param options - Extraction options specifying root directory and file patterns
+   * @param options.rootDir - Root directory to search for TypeScript files
+   * @param options.include - Optional glob patterns to include
+   * @param options.exclude - Optional glob patterns to exclude
+   * @returns Promise resolving to array of NormalizedSchema
+   *
+   * @remarks
+   * Currently returns interface/type/enum schemas only.
+   * Future enhancement: Convert ProducerSchema to NormalizedSchema
+   * for Zod schema inclusion.
+   *
+   * @example
+   * ```typescript
+   * const parser = new TypeScriptParser();
+   * const schemas = await parser.extractAll({ rootDir: './src' });
+   *
+   * // Returns all exported interfaces, type aliases, and enums
+   * console.log(`Found ${schemas.length} type definitions`);
+   * ```
+   */
+  async extractAll(options: ExtractOptions): Promise<NormalizedSchema[]> {
+    // Extract interfaces, type aliases, and enums
+    const interfaceSchemas = await this.extractInterfaces(options);
+    
+    // Note: extractSchemas returns ProducerSchema[], not NormalizedSchema[]
+    // For now, we return only interface schemas.
+    // A future enhancement could convert ProducerSchema to NormalizedSchema.
+    
+    return interfaceSchemas;
+  }
+
+  // --------------------------------------------------------------------------
+  // Private: Interface Conversion
+  // --------------------------------------------------------------------------
+
+  /**
+   * Convert a TypeScript interface declaration to NormalizedSchema.
+   *
+   * Handles all interface features:
+   * - Direct properties with type annotations
+   * - Inherited properties from extends clauses
+   * - Optional properties (marked with ?)
+   * - Readonly properties
+   * - Nullable types (T | null)
+   * - JSDoc descriptions and @deprecated tags
+   *
+   * @param iface - The ts-morph InterfaceDeclaration to convert
+   * @param filePath - Path to the source file for location tracking
+   * @returns NormalizedSchema representation of the interface
+   */
+  private convertInterfaceToSchema(iface: InterfaceDeclaration, filePath: string): NormalizedSchema {
+    const name = iface.getName();
+    const properties: Record<string, PropertyDef> = {};
+    const required: string[] = [];
+
+    // Get all properties including inherited ones
+    const allProperties = this.getInterfaceProperties(iface);
+
+    for (const prop of allProperties) {
+      const propName = prop.getName();
+      const propDecl = prop.getDeclarations()[0];
+      // Get the type from the value declaration or the declared type
+      const propType = prop.getValueDeclaration()
+        ? prop.getValueDeclarationOrThrow().getType()
+        : prop.getDeclaredType();
+      
+      const isOptional = prop.isOptional();
+      const isReadonly = propDecl ? this.isPropertyReadonly(propDecl) : false;
+      const jsDocInfo = propDecl ? this.getJSDocInfo(propDecl) : { description: undefined, deprecated: false };
+      
+      // Check for nullable types
+      const { baseType, isNullable, hasUndefined } = this.analyzeNullability(propType);
+      
+      const normalizedType = this.convertTypeToNormalized(baseType, propType);
+      
+      properties[propName] = {
+        type: normalizedType,
+        optional: isOptional || hasUndefined,
+        nullable: isNullable,
+        readonly: isReadonly,
+        deprecated: jsDocInfo.deprecated,
+        description: jsDocInfo.description,
+      };
+
+      if (!isOptional && !hasUndefined) {
+        required.push(propName);
+      }
+    }
+
+    const schemaRef: SchemaRef = {
+      source: 'typescript',
+      id: `interface:${name}@${filePath}`,
+    };
+
+    return {
+      name,
+      properties,
+      required,
+      source: schemaRef,
+      location: {
+        file: filePath,
+        line: iface.getStartLineNumber(),
+      },
+    };
+  }
+
+  /**
+   * Get all properties from an interface, including inherited ones.
+   *
+   * Uses ts-morph's type resolution to flatten the property list,
+   * ensuring all properties from extended interfaces are included.
+   *
+   * @param iface - The interface declaration
+   * @returns Array of ts-morph Symbol objects representing all properties
+   */
+  private getInterfaceProperties(iface: InterfaceDeclaration): TsSymbol[] {
+    const type = iface.getType();
+    return type.getProperties();
+  }
+
+  // --------------------------------------------------------------------------
+  // Private: Type Alias Conversion
+  // --------------------------------------------------------------------------
+
+  /**
+   * Convert a TypeScript type alias to NormalizedSchema.
+   *
+   * Handles various type alias patterns:
+   * - Object types: `type Foo = { bar: string }`
+   * - Intersection types: `type Foo = A & B`
+   * - Record types: `type Dict = Record<string, T>`
+   * - Union types: `type Status = 'active' | 'inactive'`
+   *
+   * @param typeAlias - The ts-morph TypeAliasDeclaration to convert
+   * @param filePath - Path to the source file for location tracking
+   * @returns NormalizedSchema representation of the type alias
+   */
+  private convertTypeAliasToSchema(typeAlias: TypeAliasDeclaration, filePath: string): NormalizedSchema {
+    const name = typeAlias.getName();
+    const aliasType = typeAlias.getType();
+    
+    // Handle object-like type aliases (type Foo = { ... })
+    const properties: Record<string, PropertyDef> = {};
+    const required: string[] = [];
+    let additionalProperties: boolean | NormalizedType | undefined;
+
+    // Check if it's a Record type (has index signature)
+    const stringIndexType = aliasType.getStringIndexType();
+    if (stringIndexType) {
+      // This is a Record<string, T> or similar
+      additionalProperties = this.convertTypeToNormalized(stringIndexType);
+    }
+
+    // Check if it's an intersection type and flatten it
+    if (aliasType.isIntersection()) {
+      const intersectionTypes = aliasType.getIntersectionTypes();
+      for (const t of intersectionTypes) {
+        this.extractPropertiesFromType(t, properties, required);
+      }
+    } else if (aliasType.isObject()) {
+      this.extractPropertiesFromType(aliasType, properties, required);
+    }
+    // For union types (like string literals), still return a schema
+
+    const schemaRef: SchemaRef = {
+      source: 'typescript',
+      id: `type:${name}@${filePath}`,
+    };
+
+    const result: NormalizedSchema = {
+      name,
+      properties,
+      required,
+      source: schemaRef,
+      location: {
+        file: filePath,
+        line: typeAlias.getStartLineNumber(),
+      },
+    };
+
+    if (additionalProperties !== undefined) {
+      result.additionalProperties = additionalProperties;
+    }
+
+    return result;
+  }
+
+  /**
+   * Extract properties from a ts-morph Type object.
+   *
+   * Helper method for extracting property definitions from resolved types.
+   * Used by both interface and type alias conversion to handle object types.
+   *
+   * @param type - The ts-morph Type to extract properties from
+   * @param properties - Output record to populate with PropertyDef entries
+   * @param required - Output array to populate with required property names
+   */
+  private extractPropertiesFromType(
+    type: Type,
+    properties: Record<string, PropertyDef>,
+    required: string[]
+  ): void {
+    for (const prop of type.getProperties()) {
+      const propName = prop.getName();
+      const propDecl = prop.getDeclarations()[0];
+      const propType = prop.getValueDeclaration()
+        ? prop.getValueDeclarationOrThrow().getType()
+        : prop.getDeclaredType();
+      
+      const isOptional = prop.isOptional();
+      const isReadonly = propDecl ? this.isPropertyReadonly(propDecl) : false;
+      const jsDocInfo = propDecl ? this.getJSDocInfo(propDecl) : { description: undefined, deprecated: false };
+      
+      const { baseType, isNullable, hasUndefined } = this.analyzeNullability(propType);
+      const normalizedType = this.convertTypeToNormalized(baseType, propType);
+      
+      properties[propName] = {
+        type: normalizedType,
+        optional: isOptional || hasUndefined,
+        nullable: isNullable,
+        readonly: isReadonly,
+        deprecated: jsDocInfo.deprecated,
+        description: jsDocInfo.description,
+      };
+
+      if (!isOptional && !hasUndefined && !properties[propName]) {
+        required.push(propName);
+      } else if (!isOptional && !hasUndefined && !required.includes(propName)) {
+        required.push(propName);
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Private: Enum Conversion
+  // --------------------------------------------------------------------------
+
+  /**
+   * Convert a TypeScript enum to NormalizedSchema.
+   *
+   * Enums are represented as schemas with empty properties,
+   * since they don't have traditional object properties.
+   * The enum values are not currently extracted to the schema.
+   *
+   * @param enumDecl - The ts-morph EnumDeclaration to convert
+   * @param filePath - Path to the source file for location tracking
+   * @returns NormalizedSchema representation of the enum
+   *
+   * @remarks
+   * Future enhancement: Include enum members as values or properties.
+   */
+  private convertEnumToSchema(enumDecl: EnumDeclaration, filePath: string): NormalizedSchema {
+    const name = enumDecl.getName();
+    
+    const schemaRef: SchemaRef = {
+      source: 'typescript',
+      id: `enum:${name}@${filePath}`,
+    };
+
+    // Enums don't have traditional properties, but we can represent them
+    return {
+      name,
+      properties: {},
+      required: [],
+      source: schemaRef,
+      location: {
+        file: filePath,
+        line: enumDecl.getStartLineNumber(),
+      },
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // Private: Type Analysis Utilities
+  // --------------------------------------------------------------------------
+
+  /**
+   * Analyze nullability of a TypeScript type.
+   *
+   * Examines union types to determine if they include null or undefined,
+   * and extracts the "base" type after removing null/undefined.
+   *
+   * @param type - The ts-morph Type to analyze
+   * @returns Object containing:
+   *   - `baseType`: The type with null/undefined removed
+   *   - `isNullable`: True if type includes `| null`
+   *   - `hasUndefined`: True if type includes `| undefined`
+   *
+   * @example
+   * ```typescript
+   * // For type: string | null | undefined
+   * // Returns: { baseType: string, isNullable: true, hasUndefined: true }
+   * ```
+   */
+  private analyzeNullability(type: Type): { baseType: Type; isNullable: boolean; hasUndefined: boolean } {
+    let isNullable = false;
+    let hasUndefined = false;
+    let baseType = type;
+
+    if (type.isUnion()) {
+      const unionTypes = type.getUnionTypes();
+      const nonNullTypes: Type[] = [];
+
+      for (const t of unionTypes) {
+        if (t.isNull()) {
+          isNullable = true;
+        } else if (t.isUndefined()) {
+          hasUndefined = true;
+        } else {
+          nonNullTypes.push(t);
+        }
+      }
+
+      // If there's only one non-null type, use it as the base
+      if (nonNullTypes.length === 1) {
+        baseType = nonNullTypes[0];
+      }
+    }
+
+    return { baseType, isNullable, hasUndefined };
+  }
+
+  /**
+   * Convert a ts-morph Type to NormalizedType.
+   *
+   * Recursively converts TypeScript types to the normalized type system:
+   * - Primitives: string, number, boolean, null
+   * - Literals: 'active', 42, true
+   * - Arrays: `string[]`, `Array<T>`
+   * - Tuples: `[string, number]`
+   * - Unions: `string | number`
+   * - Intersections: `A & B`
+   * - Objects: `{ foo: string }`
+   * - References: named interfaces
+   *
+   * @param type - The ts-morph Type to convert
+   * @param originalType - Optional original type before nullability analysis
+   * @returns NormalizedType representation
+   */
+  private convertTypeToNormalized(type: Type, originalType?: Type): NormalizedType {
+    const typeToUse = type;
+    
+    // Check for primitives
+    if (typeToUse.isString()) {
+      return { kind: 'primitive', value: 'string' };
+    }
+    if (typeToUse.isNumber()) {
+      return { kind: 'primitive', value: 'number' };
+    }
+    if (typeToUse.isBoolean()) {
+      return { kind: 'primitive', value: 'boolean' };
+    }
+    if (typeToUse.isNull()) {
+      return { kind: 'primitive', value: 'null' };
+    }
+    
+    // Check for literal types
+    if (typeToUse.isStringLiteral()) {
+      return { kind: 'literal', value: typeToUse.getLiteralValue() as string };
+    }
+    if (typeToUse.isNumberLiteral()) {
+      return { kind: 'literal', value: typeToUse.getLiteralValue() as number };
+    }
+    if (typeToUse.isBooleanLiteral()) {
+      const text = typeToUse.getText();
+      return { kind: 'literal', value: text === 'true' };
+    }
+    
+    // Check for array types
+    if (typeToUse.isArray()) {
+      const elementType = typeToUse.getArrayElementType();
+      if (elementType) {
+        return {
+          kind: 'array',
+          element: this.convertTypeToNormalized(elementType),
+        };
+      }
+      return { kind: 'array', element: { kind: 'unknown' } };
+    }
+
+    // Check for tuple types (convert to array for simplicity)
+    if (typeToUse.isTuple()) {
+      const tupleTypes = typeToUse.getTupleElements();
+      if (tupleTypes.length > 0) {
+        // For tuples, we lose type information - just use array
+        return { kind: 'array', element: { kind: 'unknown' } };
+      }
+      return { kind: 'array', element: { kind: 'unknown' } };
+    }
+    
+    // Check for union types
+    if (typeToUse.isUnion()) {
+      const variants = typeToUse.getUnionTypes()
+        .filter(t => !t.isNull() && !t.isUndefined())
+        .map(t => this.convertTypeToNormalized(t));
+      
+      if (variants.length === 0) {
+        return { kind: 'unknown' };
+      }
+      if (variants.length === 1) {
+        return variants[0];
+      }
+      return { kind: 'union', variants };
+    }
+    
+    // Check for intersection types
+    if (typeToUse.isIntersection()) {
+      const members = typeToUse.getIntersectionTypes()
+        .map(t => this.convertTypeToNormalized(t));
+      return { kind: 'intersection', members };
+    }
+    
+    // Check for object types (inline or interface references)
+    if (typeToUse.isObject()) {
+      // Check if it's a named interface reference
+      const symbol = typeToUse.getSymbol();
+      if (symbol) {
+        const name = symbol.getName();
+        // Skip built-in types
+        if (name !== '__type' && name !== 'Array' && name !== 'Date') {
+          // For now, inline the properties for object types
+        }
+      }
+      
+      // Extract properties for inline object type
+      const properties: Record<string, PropertyDef> = {};
+      const required: string[] = [];
+      
+      for (const prop of typeToUse.getProperties()) {
+        const propName = prop.getName();
+        const propDecl = prop.getDeclarations()[0];
+        const propType = prop.getValueDeclaration()
+          ? prop.getValueDeclarationOrThrow().getType()
+          : prop.getDeclaredType();
+        
+        const isOptional = prop.isOptional();
+        const isReadonly = propDecl ? this.isPropertyReadonly(propDecl) : false;
+        const jsDocInfo = propDecl ? this.getJSDocInfo(propDecl) : { description: undefined, deprecated: false };
+        
+        const { baseType, isNullable, hasUndefined } = this.analyzeNullability(propType);
+        const normalizedPropType = this.convertTypeToNormalized(baseType, propType);
+        
+        properties[propName] = {
+          type: normalizedPropType,
+          optional: isOptional || hasUndefined,
+          nullable: isNullable,
+          readonly: isReadonly,
+          deprecated: jsDocInfo.deprecated,
+          description: jsDocInfo.description,
+        };
+        
+        if (!isOptional && !hasUndefined) {
+          required.push(propName);
+        }
+      }
+      
+      return {
+        kind: 'object',
+        schema: {
+          properties,
+          required,
+          source: { source: 'typescript', id: 'inline' },
+        },
+      };
+    }
+    
+    // Check for any/unknown
+    if (typeToUse.getText() === 'any') {
+      return { kind: 'any' };
+    }
+    
+    return { kind: 'unknown' };
+  }
+
+  // --------------------------------------------------------------------------
+  // Private: Property Metadata Extraction
+  // --------------------------------------------------------------------------
+
+  /**
+   * Check if a property declaration is readonly.
+   *
+   * @param decl - The property declaration node
+   * @returns True if the property has the readonly modifier
+   */
+  private isPropertyReadonly(decl: Node): boolean {
+    if (Node.isPropertySignature(decl)) {
+      return decl.isReadonly();
+    }
+    if (Node.isPropertyDeclaration(decl)) {
+      return decl.isReadonly();
+    }
+    return false;
+  }
+
+  /**
+   * Extract JSDoc information from a declaration.
+   *
+   * Parses JSDoc comments to extract:
+   * - Description text
+   * - @deprecated tag presence
+   *
+   * @param decl - The declaration node to extract JSDoc from
+   * @returns Object with description and deprecated flag
+   */
+  private getJSDocInfo(decl: Node): { description?: string; deprecated: boolean } {
+    let description: string | undefined;
+    let deprecated = false;
+
+    // Get JSDoc from property signature or declaration
+    if (Node.isPropertySignature(decl) || Node.isPropertyDeclaration(decl)) {
+      const jsDocs = decl.getJsDocs();
+      if (jsDocs.length > 0) {
+        const jsDoc = jsDocs[0];
+        const descText = jsDoc.getDescription().trim();
+        if (descText) {
+          description = descText;
+        }
+        
+        // Check for @deprecated tag
+        for (const tag of jsDoc.getTags()) {
+          if (tag.getTagName() === 'deprecated') {
+            deprecated = true;
+            break;
+          }
+        }
+      }
+    }
+
+    return { description, deprecated };
   }
 }

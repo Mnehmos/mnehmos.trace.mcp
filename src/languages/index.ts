@@ -114,3 +114,18 @@ export async function traceConsumerUsage(
 
 // Re-export types
 export type { LanguageParser, ExtractOptions, TraceOptions } from './base.js';
+
+// Re-export import resolution (P2-5)
+export {
+  ImportResolverImpl,
+  FileCache,
+} from './import-resolver.js';
+
+export type {
+  ImportResolver,
+  ImportResolverConfig,
+  ResolvedImport,
+  ResolvedTypeRef,
+  ImportGraphNode,
+  CacheStats,
+} from './import-resolver.js';
