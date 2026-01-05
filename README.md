@@ -40,9 +40,18 @@ Result:              ❌ Mismatch detected before runtime
 | **HTTP Client Tracing** | fetch() and axios call detection with URL extraction and type inference |
 | **GraphQL Support** | SDL schema parsing, Apollo Server resolvers, and Apollo Client hook tracing |
 
+### Phase 3 Capabilities
+
+| Feature | Description |
+|---------|-------------|
+| **Python AST Parser** | FastAPI, Flask, and MCP tool extraction with Pydantic model support |
+| **Go Language Parser** | Struct/interface extraction with Chi, Gin, and stdlib HTTP handler detection |
+| **gRPC/Protobuf Support** | Proto3 parsing with message, enum, service, and streaming RPC extraction |
+| **Python HTTP Clients** | requests, httpx, and aiohttp library detection with response property tracing |
+
 ### Test Coverage
 
-**661 tests passing** across 12 test suites:
+**1047 tests passing** across 16 test suites:
 
 | Test Suite | Tests |
 |------------|-------|
@@ -52,6 +61,10 @@ Result:              ❌ Mismatch detected before runtime
 | GraphQL Support | 109 |
 | Import Resolution | 56 |
 | Core (adapters, OpenAPI, tRPC) | 234 |
+| Python AST | 121 |
+| gRPC/Protobuf | 124 |
+| Go Parser | 106 |
+| Python HTTP Clients | 35 |
 
 ## Installation
 
@@ -94,11 +107,20 @@ Trace MCP supports schema extraction and comparison across multiple specificatio
 | Category | Frameworks |
 |----------|------------|
 | **API Specs** | OpenAPI 3.0+, Swagger |
-| **RPC** | MCP (Zod), tRPC |
-| **REST Servers** | Express, Fastify |
-| **HTTP Clients** | fetch(), axios |
+| **RPC** | MCP (Zod), tRPC, gRPC/Protobuf |
+| **REST Servers** | Express, Fastify, FastAPI, Flask, Chi, Gin, Go stdlib |
+| **HTTP Clients** | fetch(), axios, requests, httpx, aiohttp |
 | **GraphQL** | SDL schemas, Apollo Server, Apollo Client |
-| **Type Systems** | TypeScript interfaces, Zod schemas |
+| **Type Systems** | TypeScript interfaces, Zod schemas, Pydantic models, Go structs |
+
+### Supported Languages
+
+| Language | Producer Detection | Consumer Tracing |
+|----------|-------------------|------------------|
+| **TypeScript** | MCP tools, tRPC, Express, Fastify, GraphQL resolvers | callTool(), fetch, axios, Apollo Client |
+| **Python** | FastAPI, Flask, MCP tools, Pydantic models | requests, httpx, aiohttp |
+| **Go** | Chi, Gin, stdlib handlers, structs, interfaces | — |
+| **Protobuf** | Messages, enums, services, streaming RPCs | — |
 
 ---
 
@@ -600,6 +622,540 @@ const report = await client.callTool("compare", {
 
 ---
 
+### Python (FastAPI, Flask, MCP Tools)
+
+Extract endpoint schemas from Python web frameworks and MCP tool definitions with full Pydantic model support.
+
+#### FastAPI
+
+```python
+from fastapi import FastAPI, APIRouter
+from pydantic import BaseModel
+from typing import Optional, List
+
+class Character(BaseModel):
+    id: str
+    name: str
+    character_class: str
+    level: int = 1
+    skills: List[str] = []
+
+class CreateCharacterRequest(BaseModel):
+    name: str
+    character_class: str
+    background: Optional[str] = None
+
+app = FastAPI()
+router = APIRouter(prefix="/api/v1")
+
+@app.get("/characters/{character_id}")
+async def get_character(character_id: str) -> Character:
+    return Character(id=character_id, name="Hero", character_class="Fighter")
+
+@router.post("/characters")
+async def create_character(request: CreateCharacterRequest) -> Character:
+    return Character(id="123", name=request.name, character_class=request.character_class)
+
+app.include_router(router)
+```
+
+**Schema ID Format**: `python:GET:/characters/{character_id}@./main.py`
+
+#### Flask
+
+```python
+from flask import Flask, Blueprint, request, jsonify
+
+app = Flask(__name__)
+api = Blueprint("api", __name__, url_prefix="/api")
+
+@app.route("/health")
+def health_check():
+    return jsonify({"status": "ok"})
+
+@api.route("/users/<user_id>", methods=["GET"])
+def get_user(user_id):
+    return jsonify({"id": user_id, "name": "Alice"})
+
+@api.route("/users", methods=["POST"])
+def create_user():
+    data = request.get_json()
+    return jsonify({"id": "123", **data}), 201
+
+app.register_blueprint(api)
+```
+
+**Schema ID Format**: `python:GET:/api/users/<user_id>@./app.py`
+
+#### MCP Tools (Python)
+
+```python
+from mcp import Server
+
+server = Server("character-tools")
+
+@server.tool()
+async def get_character(character_id: str) -> dict:
+    """Fetch character data by ID."""
+    return {"id": character_id, "name": "Hero", "class": "Fighter"}
+
+@mcp.tool()
+def roll_dice(dice: str, modifier: int = 0) -> dict:
+    """Roll dice with optional modifier."""
+    return {"result": 15, "expression": dice, "modifier": modifier}
+```
+
+**Schema ID Format**: `python-mcp:get_character@./tools.py`
+
+#### Pydantic Models
+
+```python
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Union, Literal
+from enum import Enum
+
+class CharacterClass(str, Enum):
+    FIGHTER = "Fighter"
+    WIZARD = "Wizard"
+    ROGUE = "Rogue"
+
+class Stats(BaseModel):
+    strength: int = Field(ge=1, le=20)
+    dexterity: int = Field(ge=1, le=20)
+    constitution: int = Field(ge=1, le=20)
+
+class Character(BaseModel):
+    id: str
+    name: str
+    character_class: CharacterClass
+    level: int = Field(default=1, ge=1, le=20)
+    stats: Stats
+    equipment: List[str] = []
+    metadata: Optional[Dict[str, str]] = None
+```
+
+**Detected Elements:**
+- Decorators: `@app.get()`, `@app.post()`, `@router.*`, `@app.route()`, `@blueprint.route()`
+- MCP decorators: `@mcp.tool()`, `@server.tool()`
+- Pydantic `BaseModel` classes with field extraction
+- Type annotations: `Optional`, `Union`, `List`, `Dict`, `Literal`
+- Enum types
+
+**Usage Example:**
+
+```typescript
+const result = await client.callTool("extract_schemas", {
+  rootDir: "./backend",
+  include: ["**/*.py"],
+});
+// Returns endpoints with ID format: python:GET:/characters/{id}@./main.py
+```
+
+---
+
+### Go Language (Chi, Gin, stdlib)
+
+Extract struct definitions, interfaces, and HTTP endpoint schemas from Go source files.
+
+#### Structs with JSON Tags
+
+```go
+package models
+
+type Character struct {
+    ID        string   `json:"id"`
+    Name      string   `json:"name"`
+    Class     string   `json:"class"`
+    Level     int      `json:"level"`
+    HitPoints int      `json:"hp"`
+    Skills    []string `json:"skills,omitempty"`
+}
+
+type Stats struct {
+    Strength     int `json:"str"`
+    Dexterity    int `json:"dex"`
+    Constitution int `json:"con"`
+}
+
+// Embedded struct
+type CharacterWithStats struct {
+    Character
+    Stats Stats `json:"stats"`
+}
+```
+
+**Schema ID Format**: `go-struct:Character@./models/character.go`
+
+#### Interfaces
+
+```go
+package services
+
+type CharacterService interface {
+    GetByID(id string) (*Character, error)
+    Create(req CreateRequest) (*Character, error)
+    Update(id string, req UpdateRequest) (*Character, error)
+    Delete(id string) error
+}
+
+type Repository interface {
+    Find(query Query) ([]Character, error)
+    Save(character *Character) error
+}
+```
+
+**Schema ID Format**: `go-interface:CharacterService@./services/character.go`
+
+#### stdlib HTTP Handlers
+
+```go
+package main
+
+import (
+    "encoding/json"
+    "net/http"
+)
+
+func main() {
+    http.HandleFunc("/health", healthHandler)
+    http.HandleFunc("/api/characters", charactersHandler)
+    http.HandleFunc("/api/characters/", characterByIDHandler)
+    http.ListenAndServe(":8080", nil)
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+    json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func charactersHandler(w http.ResponseWriter, r *http.Request) {
+    switch r.Method {
+    case http.MethodGet:
+        // List characters
+    case http.MethodPost:
+        // Create character
+    }
+}
+```
+
+**Schema ID Format**: `go-http:GET:/health@./main.go`
+
+#### Chi Router
+
+```go
+package main
+
+import (
+    "github.com/go-chi/chi/v5"
+    "net/http"
+)
+
+func main() {
+    r := chi.NewRouter()
+    
+    r.Get("/health", healthHandler)
+    
+    r.Route("/api/characters", func(r chi.Router) {
+        r.Get("/", listCharacters)
+        r.Post("/", createCharacter)
+        r.Get("/{id}", getCharacter)        // Chi param: {id}
+        r.Put("/{id}", updateCharacter)
+        r.Delete("/{id}", deleteCharacter)
+    })
+    
+    http.ListenAndServe(":8080", r)
+}
+```
+
+**Schema ID Format**: `go-http:GET:/api/characters/{id}@./main.go`
+
+#### Gin Framework
+
+```go
+package main
+
+import "github.com/gin-gonic/gin"
+
+func main() {
+    r := gin.Default()
+    
+    r.GET("/health", healthHandler)
+    
+    api := r.Group("/api")
+    {
+        api.GET("/characters", listCharacters)
+        api.POST("/characters", createCharacter)
+        api.GET("/characters/:id", getCharacter)  // Gin param: :id
+        api.PUT("/characters/:id", updateCharacter)
+        api.DELETE("/characters/:id", deleteCharacter)
+    }
+    
+    r.Run(":8080")
+}
+```
+
+**Schema ID Format**: `go-http:GET:/api/characters/:id@./main.go`
+
+**Detected Elements:**
+- Struct definitions with JSON tags
+- Embedded structs
+- Interface definitions
+- `http.HandleFunc()` patterns
+- Chi router: `r.Get()`, `r.Post()`, `r.Route()`, `{param}` syntax
+- Gin framework: `r.GET()`, `r.POST()`, `r.Group()`, `:param` syntax
+
+**Usage Example:**
+
+```typescript
+const result = await client.callTool("extract_schemas", {
+  rootDir: "./backend",
+  include: ["**/*.go"],
+});
+// Returns structs, interfaces, and endpoints
+```
+
+---
+
+### gRPC / Protobuf
+
+Parse Protocol Buffer definitions (proto3) to extract message types, enums, services, and RPC methods.
+
+#### Basic Messages
+
+```protobuf
+syntax = "proto3";
+
+package character;
+
+message Character {
+    string id = 1;
+    string name = 2;
+    CharacterClass character_class = 3;
+    int32 level = 4;
+    Stats stats = 5;
+    repeated string skills = 6;
+}
+
+message Stats {
+    int32 strength = 1;
+    int32 dexterity = 2;
+    int32 constitution = 3;
+}
+```
+
+**Schema ID Format**: `proto-message:character.Character@./character.proto`
+
+#### Enums
+
+```protobuf
+enum CharacterClass {
+    CHARACTER_CLASS_UNSPECIFIED = 0;
+    CHARACTER_CLASS_FIGHTER = 1;
+    CHARACTER_CLASS_WIZARD = 2;
+    CHARACTER_CLASS_ROGUE = 3;
+}
+
+enum DamageType {
+    DAMAGE_TYPE_UNSPECIFIED = 0;
+    DAMAGE_TYPE_SLASHING = 1;
+    DAMAGE_TYPE_PIERCING = 2;
+    DAMAGE_TYPE_FIRE = 3;
+}
+```
+
+**Schema ID Format**: `proto-enum:character.CharacterClass@./character.proto`
+
+#### Oneof and Map Fields
+
+```protobuf
+message Equipment {
+    string id = 1;
+    string name = 2;
+    
+    oneof item_type {
+        Weapon weapon = 10;
+        Armor armor = 11;
+        Consumable consumable = 12;
+    }
+}
+
+message Inventory {
+    string character_id = 1;
+    map<string, int32> item_counts = 2;
+    map<string, Equipment> equipped = 3;
+}
+```
+
+**Schema ID Format**: `proto-message:character.Equipment@./equipment.proto`
+
+#### Services and RPCs
+
+```protobuf
+service CharacterService {
+    // Unary RPC
+    rpc GetCharacter(GetCharacterRequest) returns (Character);
+    
+    // Server streaming
+    rpc ListCharacters(ListRequest) returns (stream Character);
+    
+    // Client streaming
+    rpc UploadInventory(stream Item) returns (UploadResponse);
+    
+    // Bidirectional streaming
+    rpc Chat(stream ChatMessage) returns (stream ChatMessage);
+}
+
+message GetCharacterRequest {
+    string id = 1;
+}
+
+message ListRequest {
+    int32 page_size = 1;
+    string page_token = 2;
+}
+```
+
+**Schema ID Format**: `proto-service:character.CharacterService@./character.proto`
+**RPC Format**: `proto-rpc:CharacterService.GetCharacter@./character.proto`
+
+#### Well-Known Types
+
+```protobuf
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/struct.proto";
+
+message CharacterEvent {
+    string character_id = 1;
+    string event_type = 2;
+    google.protobuf.Timestamp created_at = 3;
+    google.protobuf.Duration duration = 4;
+    google.protobuf.Any payload = 5;
+    google.protobuf.Struct metadata = 6;
+}
+```
+
+**Detected Elements:**
+- Messages with all field types (scalar, message, enum, repeated)
+- Enums with numeric values
+- `oneof` field groups
+- `map<K, V>` fields
+- Nested message definitions
+- Service definitions with all streaming modes:
+  - Unary: `rpc Method(Request) returns (Response)`
+  - Server streaming: `rpc Method(Request) returns (stream Response)`
+  - Client streaming: `rpc Method(stream Request) returns (Response)`
+  - Bidirectional: `rpc Method(stream Request) returns (stream Response)`
+- Well-known types: `Timestamp`, `Duration`, `Any`, `Struct`
+
+**Usage Example:**
+
+```typescript
+const result = await client.callTool("extract_schemas", {
+  rootDir: "./proto",
+  include: ["**/*.proto"],
+});
+// Returns messages, enums, and services
+```
+
+---
+
+### Python HTTP Clients (requests, httpx, aiohttp)
+
+Trace HTTP client calls in Python code to detect consumer expectations.
+
+#### requests Library
+
+```python
+import requests
+
+# Basic GET
+response = requests.get("https://api.example.com/characters")
+characters = response.json()
+
+# GET with path parameter
+character = requests.get(f"https://api.example.com/characters/{char_id}").json()
+
+# POST with JSON body
+new_char = requests.post(
+    "https://api.example.com/characters",
+    json={"name": "Hero", "class": "Fighter"}
+).json()
+
+# Session with base URL
+session = requests.Session()
+session.headers.update({"Authorization": "Bearer token"})
+user = session.get("https://api.example.com/me").json()
+
+# Property access tracking
+print(character["name"], character["stats"]["strength"])
+```
+
+**Schema ID Format**: `python-http:GET:/characters@./client.py`
+
+#### httpx Library
+
+```python
+import httpx
+
+# Sync client
+response = httpx.get("https://api.example.com/characters")
+data = response.json()
+
+# Async client
+async with httpx.AsyncClient(base_url="https://api.example.com") as client:
+    response = await client.get("/characters")
+    characters = response.json()
+    
+    response = await client.post("/characters", json={"name": "Hero"})
+    new_char = response.json()
+```
+
+**Schema ID Format**: `python-http:GET:/characters@./client.py`
+
+#### aiohttp Library
+
+```python
+import aiohttp
+
+async with aiohttp.ClientSession() as session:
+    # GET request
+    async with session.get("https://api.example.com/characters") as response:
+        characters = await response.json()
+    
+    # POST request
+    async with session.post(
+        "https://api.example.com/characters",
+        json={"name": "Hero", "class": "Fighter"}
+    ) as response:
+        new_char = await response.json()
+    
+    # Property access
+    print(new_char["id"], new_char["name"])
+```
+
+**Schema ID Format**: `python-http:POST:/characters@./client.py`
+
+**Detected Elements:**
+- `requests.get()`, `requests.post()`, etc.
+- `httpx.get()`, `httpx.post()`, `AsyncClient` methods
+- `aiohttp.ClientSession` methods
+- URL extraction (static strings, f-strings)
+- HTTP method detection
+- Response property access (dictionary key access)
+
+**Usage Example:**
+
+```typescript
+const result = await client.callTool("trace_usage", {
+  rootDir: "./python-client",
+  include: ["**/*.py"],
+});
+// Returns HTTP client calls with property access patterns
+```
+
+---
+
 ## Architecture
 
 ### Pattern Matcher Framework
@@ -1088,15 +1644,18 @@ const report = await client.callTool("compare", {
 - [x] REST endpoint detection - Express & Fastify (Phase 2)
 - [x] HTTP client tracing - fetch & axios (Phase 2)
 - [x] GraphQL support - SDL, Apollo Server, Apollo Client (Phase 2)
+- [x] Python language support - FastAPI, Flask, MCP tools, Pydantic (Phase 3)
+- [x] Go language support - Chi, Gin, stdlib handlers, structs (Phase 3)
+- [x] gRPC/Protobuf support - proto3, messages, services, streaming (Phase 3)
+- [x] Python HTTP client tracing - requests, httpx, aiohttp (Phase 3)
 
 ### Planned
 
-- [ ] Python language support
-- [ ] Go language support
 - [ ] JSON Schema adapter
-- [ ] gRPC/Protobuf support
 - [ ] WebSocket message tracing
 - [ ] OpenTelemetry integration
+- [ ] Rust language support
+- [ ] Java/Kotlin language support
 
 ## License
 

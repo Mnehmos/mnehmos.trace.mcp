@@ -1,0 +1,98 @@
+// INVALID proto file for error handling tests
+// This file contains intentional syntax errors and invalid constructs
+
+syntax = "proto3";
+
+package example.invalid;
+
+// Missing closing brace
+message Incomplete {
+  string id = 1;
+  string name = 2
+  // Missing closing brace here
+
+// Duplicate field numbers
+message DuplicateFieldNumbers {
+  string id = 1;
+  string name = 1;  // ERROR: duplicate field number
+  string email = 2;
+}
+
+// Invalid field number (0 is reserved)
+message InvalidFieldNumber {
+  string id = 0;  // ERROR: field 0 not allowed
+  string name = 1;
+}
+
+// Invalid field number (too large)
+message FieldNumberTooLarge {
+  string id = 536870912;  // ERROR: field number > 2^29-1
+}
+
+// Reserved field number range used
+message ReservedFieldNumber {
+  string id = 19000;  // ERROR: 19000-19999 is reserved
+}
+
+// Unknown type reference
+message UnknownType {
+  string id = 1;
+  NonExistentType data = 2;  // ERROR: type not defined
+}
+
+// Circular reference (self-referencing is allowed, but let's test)
+message CircularA {
+  string id = 1;
+  CircularB ref = 2;
+}
+
+message CircularB {
+  string id = 1;
+  CircularC ref = 2;
+}
+
+message CircularC {
+  string id = 1;
+  CircularA ref = 2;  // Circular reference back to A
+}
+
+// Invalid map key type
+message InvalidMapKey {
+  map<float, string> float_keys = 1;  // ERROR: float not allowed as map key
+  map<double, string> double_keys = 2;  // ERROR: double not allowed as map key
+  map<bytes, string> bytes_keys = 3;  // ERROR: bytes not allowed as map key
+}
+
+// Missing required field in proto3 (proto3 doesn't have required)
+message MissingRequired {
+  required string id = 1;  // ERROR: 'required' not valid in proto3
+}
+
+// Invalid enum (missing zero value)
+enum InvalidEnum {
+  FIRST = 1;  // ERROR: first enum value must be 0 in proto3
+  SECOND = 2;
+}
+
+// Invalid service (syntax error)
+service InvalidService {
+  rpc BadMethod(  // ERROR: incomplete method signature
+}
+
+// Message with invalid syntax
+message SyntaxError {
+  string id = 1
+  string name = 2;  // ERROR: missing semicolon on previous line
+}
+
+// Invalid package name
+package 123invalid;  // ERROR: package name cannot start with number
+
+// Duplicate package declaration
+package example.duplicate;
+
+// Missing semicolon after import
+import "missing_semicolon.proto"
+
+// Invalid import path
+import "non/existent/file.proto";  // Will fail to resolve

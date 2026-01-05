@@ -1,0 +1,110 @@
+// Service definitions for gRPC/Protobuf parser tests
+// Tests service extraction and unary RPC methods
+
+syntax = "proto3";
+
+package example.service;
+
+// Request and response messages for UserService
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+  optional string phone = 3;
+}
+
+message CreateUserResponse {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  int64 created_at = 4;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  optional string name = 2;
+  optional string email = 3;
+  optional string phone = 4;
+}
+
+message UpdateUserResponse {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  int64 updated_at = 4;
+}
+
+message DeleteUserRequest {
+  string user_id = 1;
+}
+
+message DeleteUserResponse {
+  bool success = 1;
+}
+
+message ListUsersRequest {
+  int32 page_size = 1;
+  optional string page_token = 2;
+  optional string filter = 3;
+}
+
+message ListUsersResponse {
+  repeated GetUserResponse users = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// User service with CRUD operations
+service UserService {
+  // Get a single user by ID
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  
+  // Create a new user
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  
+  // Update an existing user
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  
+  // Delete a user
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  
+  // List users with pagination
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+}
+
+// Health check messages
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+}
+
+// Health check service
+service HealthService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Empty messages for services that don't need request/response data
+message EmptyRequest {}
+message EmptyResponse {}
+
+// Service with empty request/response
+service PingService {
+  rpc Ping(EmptyRequest) returns (EmptyResponse);
+}

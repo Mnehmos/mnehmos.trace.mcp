@@ -1,0 +1,118 @@
+// Streaming RPC definitions for gRPC/Protobuf parser tests
+// Tests all four streaming modes: unary, server, client, bidirectional
+
+syntax = "proto3";
+
+package example.streaming;
+
+// Messages for streaming tests
+message DataChunk {
+  int32 sequence = 1;
+  bytes data = 2;
+  optional string checksum = 3;
+}
+
+message UploadResponse {
+  string file_id = 1;
+  int64 total_bytes = 2;
+  int32 chunks_received = 3;
+}
+
+message DownloadRequest {
+  string file_id = 1;
+  optional int32 chunk_size = 2;
+}
+
+message StreamItem {
+  string id = 1;
+  string content = 2;
+  int64 timestamp = 3;
+}
+
+message StreamRequest {
+  string topic = 1;
+  optional int32 limit = 2;
+  optional int64 since_timestamp = 3;
+}
+
+message ChatMessage {
+  string sender_id = 1;
+  string content = 2;
+  int64 timestamp = 3;
+  optional string room_id = 4;
+}
+
+message EventRequest {
+  string subscription_id = 1;
+  repeated string event_types = 2;
+}
+
+message Event {
+  string id = 1;
+  string type = 2;
+  string payload = 3;
+  int64 timestamp = 4;
+}
+
+message SensorReading {
+  string sensor_id = 1;
+  double value = 2;
+  string unit = 3;
+  int64 timestamp = 4;
+}
+
+message AggregatedResult {
+  string sensor_id = 1;
+  double average = 2;
+  double min = 3;
+  double max = 4;
+  int32 sample_count = 5;
+}
+
+// Service with all streaming types
+service StreamingService {
+  // Unary RPC (no streaming)
+  rpc GetSingleItem(StreamRequest) returns (StreamItem);
+  
+  // Server-side streaming: client sends one request, server streams many responses
+  rpc ServerStreamItems(StreamRequest) returns (stream StreamItem);
+  
+  // Client-side streaming: client streams many requests, server sends one response
+  rpc ClientStreamUpload(stream DataChunk) returns (UploadResponse);
+  
+  // Bidirectional streaming: both client and server stream
+  rpc BidirectionalChat(stream ChatMessage) returns (stream ChatMessage);
+}
+
+// File transfer service demonstrating streaming patterns
+service FileService {
+  // Download file as stream of chunks (server streaming)
+  rpc Download(DownloadRequest) returns (stream DataChunk);
+  
+  // Upload file as stream of chunks (client streaming)
+  rpc Upload(stream DataChunk) returns (UploadResponse);
+}
+
+// Event subscription service
+service EventService {
+  // Subscribe to events (server streaming)
+  rpc Subscribe(EventRequest) returns (stream Event);
+  
+  // Publish events (client streaming)
+  rpc Publish(stream Event) returns (UploadResponse);
+  
+  // Full duplex event exchange
+  rpc Exchange(stream Event) returns (stream Event);
+}
+
+// Real-time sensor data service
+service SensorService {
+  // Stream sensor readings to server, receive aggregated results (bidirectional)
+  rpc ProcessReadings(stream SensorReading) returns (stream AggregatedResult);
+  
+  // Send batch of readings, receive single summary (client streaming)
+  rpc BatchProcess(stream SensorReading) returns (AggregatedResult);
+  
+  // Request readings for a sensor (server streaming)
+  rpc WatchSensor(StreamRequest) returns (stream SensorReading);
+}

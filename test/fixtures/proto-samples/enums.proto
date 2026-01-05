@@ -1,0 +1,101 @@
+// Enum definitions for gRPC/Protobuf parser tests
+// Tests top-level enums and enum value handling
+
+syntax = "proto3";
+
+package example.enums;
+
+// Basic enum with standard naming convention
+enum Status {
+  STATUS_UNKNOWN = 0;
+  STATUS_ACTIVE = 1;
+  STATUS_INACTIVE = 2;
+  STATUS_PENDING = 3;
+}
+
+// Enum with allow_alias option (same value for multiple names)
+enum Priority {
+  option allow_alias = true;
+  PRIORITY_UNKNOWN = 0;
+  PRIORITY_LOW = 1;
+  PRIORITY_NORMAL = 2;
+  PRIORITY_MEDIUM = 2;  // Alias for NORMAL
+  PRIORITY_HIGH = 3;
+  PRIORITY_CRITICAL = 4;
+  PRIORITY_URGENT = 4;  // Alias for CRITICAL
+}
+
+// HTTP method enum
+enum HttpMethod {
+  HTTP_METHOD_UNKNOWN = 0;
+  HTTP_METHOD_GET = 1;
+  HTTP_METHOD_POST = 2;
+  HTTP_METHOD_PUT = 3;
+  HTTP_METHOD_PATCH = 4;
+  HTTP_METHOD_DELETE = 5;
+  HTTP_METHOD_HEAD = 6;
+  HTTP_METHOD_OPTIONS = 7;
+}
+
+// Log level enum with gaps in numbering
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  LOG_LEVEL_DEBUG = 10;
+  LOG_LEVEL_INFO = 20;
+  LOG_LEVEL_WARN = 30;
+  LOG_LEVEL_ERROR = 40;
+  LOG_LEVEL_FATAL = 50;
+}
+
+// Day of week enum
+enum DayOfWeek {
+  DAY_OF_WEEK_UNSPECIFIED = 0;
+  DAY_OF_WEEK_MONDAY = 1;
+  DAY_OF_WEEK_TUESDAY = 2;
+  DAY_OF_WEEK_WEDNESDAY = 3;
+  DAY_OF_WEEK_THURSDAY = 4;
+  DAY_OF_WEEK_FRIDAY = 5;
+  DAY_OF_WEEK_SATURDAY = 6;
+  DAY_OF_WEEK_SUNDAY = 7;
+}
+
+// Enum with negative values (allowed in proto3)
+enum Offset {
+  OFFSET_ZERO = 0;
+  OFFSET_NEGATIVE_ONE = -1;
+  OFFSET_NEGATIVE_TWO = -2;
+  OFFSET_POSITIVE_ONE = 1;
+  OFFSET_POSITIVE_TWO = 2;
+}
+
+// Message using top-level enums
+message Task {
+  string id = 1;
+  string title = 2;
+  Status status = 3;
+  Priority priority = 4;
+  optional DayOfWeek due_day = 5;
+}
+
+// Message with enum field having default value behavior
+message LogEntry {
+  int64 timestamp = 1;
+  LogLevel level = 2;
+  string message = 3;
+  optional string logger = 4;
+}
+
+// Message using HTTP method enum
+message HttpRequest {
+  HttpMethod method = 1;
+  string path = 2;
+  repeated string headers = 3;
+  optional bytes body = 4;
+}
+
+// Message with repeated enum field
+message Schedule {
+  string id = 1;
+  repeated DayOfWeek days = 2;
+  string time = 3;
+}

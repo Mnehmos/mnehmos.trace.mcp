@@ -1,0 +1,68 @@
+// Import handling tests for gRPC/Protobuf parser
+// Tests import resolution and cross-file type references
+
+syntax = "proto3";
+
+package example.imports;
+
+// Import local proto file
+import "imports/common.proto";
+
+// Message using imported types
+message Customer {
+  string id = 1;
+  string name = 2;
+  
+  // Using imported Address type
+  example.common.Address billing_address = 3;
+  optional example.common.Address shipping_address = 4;
+  
+  // Using imported audit info
+  example.common.AuditInfo audit = 5;
+  
+  // Using imported status enum
+  example.common.CommonStatus status = 6;
+}
+
+// Order using imported types
+message Order {
+  string id = 1;
+  string customer_id = 2;
+  
+  message LineItem {
+    string product_id = 1;
+    int32 quantity = 2;
+    example.common.Money unit_price = 3;
+    example.common.Money total = 4;
+  }
+  
+  repeated LineItem items = 3;
+  example.common.Money subtotal = 4;
+  example.common.Money tax = 5;
+  example.common.Money total = 6;
+  
+  example.common.Address shipping_address = 7;
+  example.common.AuditInfo audit = 8;
+}
+
+// Request using imported pagination
+message ListOrdersRequest {
+  string customer_id = 1;
+  example.common.PageInfo pagination = 2;
+  optional example.common.CommonStatus status_filter = 3;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+  example.common.PageInfo pagination = 2;
+}
+
+// Service using imported types
+service OrderService {
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+  rpc GetOrder(GetOrderRequest) returns (Order);
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}

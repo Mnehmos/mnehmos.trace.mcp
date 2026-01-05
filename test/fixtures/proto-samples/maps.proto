@@ -1,0 +1,118 @@
+// Map field definitions for gRPC/Protobuf parser tests
+// Tests map types with various key and value types
+
+syntax = "proto3";
+
+package example.maps;
+
+// Simple string-to-string map
+message Config {
+  string name = 1;
+  map<string, string> settings = 2;
+}
+
+// Map with int32 key
+message IntKeyedMap {
+  map<int32, string> id_to_name = 1;
+  map<int64, double> timestamp_to_value = 2;
+}
+
+// Map with bool key
+message BoolKeyedMap {
+  map<bool, string> flag_descriptions = 1;
+}
+
+// Map with message value type
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+message UserDirectory {
+  // Map with message type as value
+  map<string, User> users_by_id = 1;
+  map<string, User> users_by_email = 2;
+}
+
+// Nested message as map value
+message Project {
+  string id = 1;
+  string name = 2;
+  
+  message Member {
+    string user_id = 1;
+    string role = 2;
+    int64 joined_at = 3;
+  }
+  
+  map<string, Member> members = 3;
+}
+
+// Multiple maps in one message
+message MultiMapMessage {
+  map<string, string> string_map = 1;
+  map<string, int32> int_map = 2;
+  map<string, bool> bool_map = 3;
+  map<string, bytes> bytes_map = 4;
+  map<int32, string> reverse_lookup = 5;
+}
+
+// Map with enum value
+enum Permission {
+  PERMISSION_UNKNOWN = 0;
+  PERMISSION_READ = 1;
+  PERMISSION_WRITE = 2;
+  PERMISSION_ADMIN = 3;
+}
+
+message AccessControl {
+  string resource_id = 1;
+  map<string, Permission> user_permissions = 2;
+  map<string, Permission> group_permissions = 3;
+}
+
+// Complex message with maps and other fields
+message Document {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  
+  message Metadata {
+    string key = 1;
+    string value = 2;
+    int64 updated_at = 3;
+  }
+  
+  // Standard fields
+  int64 created_at = 4;
+  optional int64 updated_at = 5;
+  
+  // Map fields
+  map<string, string> simple_metadata = 6;
+  map<string, Metadata> structured_metadata = 7;
+  
+  // Map of arrays (not directly supported, so nested message)
+  message StringList {
+    repeated string values = 1;
+  }
+  map<string, StringList> tags = 8;
+}
+
+// Map with all allowed key types
+// Proto3 allows: int32, int64, uint32, uint64, sint32, sint64,
+// fixed32, fixed64, sfixed32, sfixed64, bool, string
+message AllKeyTypes {
+  map<int32, string> int32_keys = 1;
+  map<int64, string> int64_keys = 2;
+  map<uint32, string> uint32_keys = 3;
+  map<uint64, string> uint64_keys = 4;
+  map<sint32, string> sint32_keys = 5;
+  map<sint64, string> sint64_keys = 6;
+  map<fixed32, string> fixed32_keys = 7;
+  map<fixed64, string> fixed64_keys = 8;
+  map<sfixed32, string> sfixed32_keys = 9;
+  map<sfixed64, string> sfixed64_keys = 10;
+  map<bool, string> bool_keys = 11;
+  map<string, string> string_keys = 12;
+}

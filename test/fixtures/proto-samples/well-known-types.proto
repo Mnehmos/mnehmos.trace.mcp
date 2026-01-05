@@ -1,0 +1,132 @@
+// Google Well-Known Types for gRPC/Protobuf parser tests
+// Tests handling of google.protobuf.* types
+
+syntax = "proto3";
+
+package example.wellknown;
+
+// Import Google well-known types
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+
+// Message using Timestamp
+message Event {
+  string id = 1;
+  string type = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+  google.protobuf.Timestamp created_at = 4;
+  optional google.protobuf.Timestamp processed_at = 5;
+}
+
+// Message using Duration
+message Task {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Duration estimated_duration = 3;
+  optional google.protobuf.Duration actual_duration = 4;
+  google.protobuf.Duration timeout = 5;
+}
+
+// Message using Any (for polymorphic payloads)
+message Envelope {
+  string message_id = 1;
+  string type_url = 2;
+  google.protobuf.Any payload = 3;
+  google.protobuf.Timestamp sent_at = 4;
+}
+
+// Message using Struct (dynamic JSON-like object)
+message DynamicConfig {
+  string name = 1;
+  string version = 2;
+  google.protobuf.Struct settings = 3;
+  google.protobuf.Value default_value = 4;
+}
+
+// Message using wrapper types for nullable primitives
+message UserProfile {
+  string id = 1;
+  string username = 2;
+  
+  // Wrapper types provide nullability
+  google.protobuf.StringValue display_name = 3;
+  google.protobuf.StringValue bio = 4;
+  google.protobuf.Int32Value age = 5;
+  google.protobuf.BoolValue verified = 6;
+  google.protobuf.DoubleValue rating = 7;
+  google.protobuf.FloatValue score = 8;
+  google.protobuf.Int64Value last_login_timestamp = 9;
+  google.protobuf.UInt32Value login_count = 10;
+  google.protobuf.UInt64Value total_points = 11;
+  google.protobuf.BytesValue avatar = 12;
+}
+
+// Message using FieldMask for partial updates
+message UpdateUserRequest {
+  string user_id = 1;
+  UserProfile profile = 2;
+  google.protobuf.FieldMask update_mask = 3;
+}
+
+// Message using ListValue
+message DataPoint {
+  string label = 1;
+  google.protobuf.ListValue values = 2;  // Array of dynamic values
+  google.protobuf.Struct metadata = 3;
+}
+
+// Message combining multiple well-known types
+message AuditLog {
+  string id = 1;
+  string action = 2;
+  string actor_id = 3;
+  
+  google.protobuf.Timestamp timestamp = 4;
+  google.protobuf.Duration processing_time = 5;
+  google.protobuf.Struct context = 6;
+  google.protobuf.Any old_value = 7;
+  google.protobuf.Any new_value = 8;
+  google.protobuf.FieldMask changed_fields = 9;
+}
+
+// Service using Empty for no-arg requests/responses
+service HealthService {
+  rpc Check(google.protobuf.Empty) returns (HealthCheckResponse);
+  rpc Clear(ClearRequest) returns (google.protobuf.Empty);
+}
+
+message HealthCheckResponse {
+  bool healthy = 1;
+  google.protobuf.Timestamp last_check = 2;
+}
+
+message ClearRequest {
+  string resource_type = 1;
+}
+
+// Service with timestamp parameters
+service EventService {
+  rpc GetEventsSince(GetEventsSinceRequest) returns (GetEventsResponse);
+  rpc GetEventsInRange(GetEventsInRangeRequest) returns (GetEventsResponse);
+}
+
+message GetEventsSinceRequest {
+  google.protobuf.Timestamp since = 1;
+  int32 limit = 2;
+}
+
+message GetEventsInRangeRequest {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  optional int32 limit = 3;
+}
+
+message GetEventsResponse {
+  repeated Event events = 1;
+  google.protobuf.Timestamp fetched_at = 2;
+}
