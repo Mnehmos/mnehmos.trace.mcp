@@ -1,26 +1,51 @@
 {
   "name": "mnehmos.trace.mcp",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "MCP server for detecting producer/consumer schema mismatches with multi-language support",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "mnehmos-trace-mcp": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "test": "vitest"
+    "test": "vitest",
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
     "mcp",
+    "model-context-protocol",
     "schema",
-    "analysis",
-    "typescript"
+    "schema-validation",
+    "contract-testing",
+    "typescript",
+    "python",
+    "graphql",
+    "openapi",
+    "trpc",
+    "producer-consumer"
   ],
   "author": "Mnehmos",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mnehmos/mnehmos.trace.mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Mnehmos/mnehmos.trace.mcp/issues"
+  },
+  "homepage": "https://github.com/Mnehmos/mnehmos.trace.mcp#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "devDependencies": {
     "@types/glob": "^8.1.0",
     "@types/node": "^20.10.0",
