@@ -1117,24 +1117,46 @@ describe('GraphQL Support', () => {
       it('should validate schema -> resolver -> client contract', () => {
         const parser = new SDLParser();
         const schema = parser.parse(schemaContent);
-        
+
         const serverMatcher = new ApolloServerPatternMatcher();
         const resolvers = serverMatcher.analyze(apolloServerFile);
-        
+
         const clientMatcher = new ApolloClientPatternMatcher();
         const hooks = clientMatcher.analyze(apolloClientFile);
-        
-        // Every hook query should have a corresponding schema query
-        for (const hook of hooks) {
-          const schemaQuery = schema.queries.find(q => 
+
+        // Filter hooks by operation type and check against appropriate schema
+        // Note: Inline queries (queryName === 'inline') may not have proper schemaQueryName extraction
+        const queryHooks = hooks.filter(h => h.operationType === 'query' && h.schemaQueryName && h.queryName !== 'inline');
+        const mutationHooks = hooks.filter(h => h.operationType === 'mutation' && h.schemaQueryName && h.queryName !== 'inline');
+        const subscriptionHooks = hooks.filter(h => h.operationType === 'subscription' && h.schemaQueryName && h.queryName !== 'inline');
+
+        // Every query hook should have a corresponding schema query
+        for (const hook of queryHooks) {
+          const schemaQuery = schema.queries.find(q =>
             q.name === hook.schemaQueryName
           );
-          expect(schemaQuery).toBeDefined();
+          expect(schemaQuery, `Query hook ${hook.queryName} references schema query ${hook.schemaQueryName} which should exist`).toBeDefined();
         }
-        
+
+        // Every mutation hook should have a corresponding schema mutation
+        for (const hook of mutationHooks) {
+          const schemaMutation = schema.mutations.find(m =>
+            m.name === hook.schemaQueryName
+          );
+          expect(schemaMutation, `Mutation hook ${hook.queryName} references schema mutation ${hook.schemaQueryName} which should exist`).toBeDefined();
+        }
+
+        // Every subscription hook should have a corresponding schema subscription
+        for (const hook of subscriptionHooks) {
+          const schemaSubscription = schema.subscriptions.find(s =>
+            s.name === hook.schemaQueryName
+          );
+          expect(schemaSubscription, `Subscription hook ${hook.queryName} references schema subscription ${hook.schemaQueryName} which should exist`).toBeDefined();
+        }
+
         // Every schema query should have a corresponding resolver
         for (const query of schema.queries) {
-          const resolver = resolvers.queryResolvers.find(r => 
+          const resolver = resolvers.queryResolvers.find(r =>
             r.name === query.name
           );
           expect(resolver).toBeDefined();

@@ -114,7 +114,7 @@ const GetProjectStatusInput = z.object({
 const server = new Server(
   {
     name: 'trace-mcp',
-    version: '0.5.0',
+    version: '1.0.0',
   },
   {
     capabilities: {
@@ -769,7 +769,7 @@ console.log = (...args: unknown[]) => {
 
 // Start server
 async function main() {
-  log('Starting trace-mcp server v0.5.0');
+  log('Starting trace-mcp server v1.0.0');
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
