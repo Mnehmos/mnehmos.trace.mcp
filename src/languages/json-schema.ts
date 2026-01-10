@@ -42,7 +42,9 @@ export class JsonSchemaParser implements LanguageParser {
   // ==========================================================================
 
   async extractSchemas(options: ExtractOptions): Promise<ProducerSchema[]> {
-    console.log(`[JSON Schema] Scanning: ${options.rootDir}`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[JSON Schema] Scanning: ${options.rootDir}`);
+    }
 
     const patterns = options.include || this.filePatterns;
     const excludePatterns = options.exclude || ['**/node_modules/**', '**/dist/**', '**/package.json', '**/tsconfig.json'];
@@ -55,11 +57,15 @@ export class JsonSchemaParser implements LanguageParser {
         const fileSchemas = await this.extractFromFile(filePath);
         schemas.push(...fileSchemas);
       } catch (err) {
-        console.warn(`[JSON Schema] Failed to parse ${filePath}: ${err}`);
+        if (process.env.DEBUG_TRACE_MCP) {
+          console.error(`[JSON Schema] Failed to parse ${filePath}: ${err}`);
+        }
       }
     }
 
-    console.log(`[JSON Schema] Found ${schemas.length} tool definitions`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[JSON Schema] Found ${schemas.length} tool definitions`);
+    }
     return schemas;
   }
 
@@ -88,7 +94,9 @@ export class JsonSchemaParser implements LanguageParser {
       const tool = data.tools[i];
 
       if (!tool.name) {
-        console.warn(`[JSON Schema] Skipping tool without name in ${filePath}`);
+        if (process.env.DEBUG_TRACE_MCP) {
+          console.error(`[JSON Schema] Skipping tool without name in ${filePath}`);
+        }
         continue;
       }
 
@@ -165,7 +173,9 @@ export class JsonSchemaParser implements LanguageParser {
   // ==========================================================================
 
   async traceUsage(options: TraceOptions): Promise<ConsumerSchema[]> {
-    console.log(`[JSON Schema] Consumer tracing not supported for JSON files`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[JSON Schema] Consumer tracing not supported for JSON files`);
+    }
     // JSON Schema files are producer-only (they define tools, not consume them)
     return [];
   }

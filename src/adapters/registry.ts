@@ -30,13 +30,13 @@ class AdapterRegistry {
     this.validateAdapter(adapter);
 
     if (this.adapters.has(adapter.kind) && process.env.DEBUG_TRACE_MCP) {
-      console.warn(`[AdapterRegistry] Overwriting adapter for kind: ${adapter.kind}`);
+      console.error(`[AdapterRegistry] Overwriting adapter for kind: ${adapter.kind}`);
     }
 
     this.adapters.set(adapter.kind, adapter);
 
     if (process.env.DEBUG_TRACE_MCP) {
-      console.log(`[AdapterRegistry] Registered adapter: ${adapter.kind}`);
+      console.error(`[AdapterRegistry] Registered adapter: ${adapter.kind}`);
     }
   }
 
@@ -234,7 +234,7 @@ export async function extractSchema(ref: SchemaRef): Promise<NormalizedSchema> {
   const adapter = getAdapterForRef(ref);
   
   if (process.env.DEBUG_TRACE_MCP) {
-    console.log(`[AdapterRegistry] Extracting schema: ${ref.id} via ${adapter.kind}`);
+    console.error(`[AdapterRegistry] Extracting schema: ${ref.id} via ${adapter.kind}`);
   }
   
   return adapter.extract(ref);
@@ -268,7 +268,7 @@ export async function listSchemas(kind: SchemaSourceKind, basePath: string): Pro
   }
   
   if (process.env.DEBUG_TRACE_MCP) {
-    console.log(`[AdapterRegistry] Listing schemas via ${kind} in ${basePath}`);
+    console.error(`[AdapterRegistry] Listing schemas via ${kind} in ${basePath}`);
   }
   
   return adapter.list(basePath);

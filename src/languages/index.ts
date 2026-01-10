@@ -17,11 +17,11 @@ class LanguageParserRegistry {
    */
   register(language: string, parser: LanguageParser): void {
     if (this.parsers.has(language) && process.env.DEBUG_TRACE_MCP) {
-      console.warn(`[LanguageRegistry] Overwriting parser for language: ${language}`);
+      console.error(`[LanguageRegistry] Overwriting parser for language: ${language}`);
     }
     this.parsers.set(language, parser);
     if (process.env.DEBUG_TRACE_MCP) {
-      console.log(`[LanguageRegistry] Registered parser: ${language} (patterns: ${parser.filePatterns.join(', ')})`);
+      console.error(`[LanguageRegistry] Registered parser: ${language} (patterns: ${parser.filePatterns.join(', ')})`);
     }
   }
 
@@ -93,7 +93,7 @@ export async function extractProducerSchemas(
 ): Promise<ProducerSchema[]> {
   const parser = getParser(language);
   if (process.env.DEBUG_TRACE_MCP) {
-    console.log(`[LanguageRegistry] Using ${language} parser for extraction`);
+    console.error(`[LanguageRegistry] Using ${language} parser for extraction`);
   }
   return parser.extractSchemas(options);
 }
@@ -107,7 +107,7 @@ export async function traceConsumerUsage(
 ): Promise<ConsumerSchema[]> {
   const parser = getParser(language);
   if (process.env.DEBUG_TRACE_MCP) {
-    console.log(`[LanguageRegistry] Using ${language} parser for tracing`);
+    console.error(`[LanguageRegistry] Using ${language} parser for tracing`);
   }
   return parser.traceUsage(options);
 }

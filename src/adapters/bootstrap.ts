@@ -33,7 +33,7 @@ import { TRPCAdapter } from './trpc/index.js';
  */
 export function bootstrapAdapters(): void {
   if (process.env.DEBUG_TRACE_MCP) {
-    console.log('[AdapterBootstrap] Registering built-in adapters...');
+    console.error('[AdapterBootstrap] Registering built-in adapters...');
   }
 
   // Register MCP adapter for MCP tool schemas
@@ -46,6 +46,6 @@ export function bootstrapAdapters(): void {
   registerAdapter(new TRPCAdapter());
 
   if (process.env.DEBUG_TRACE_MCP) {
-    console.log('[AdapterBootstrap] Built-in adapters registered');
+    console.error('[AdapterBootstrap] Built-in adapters registered');
   }
 }

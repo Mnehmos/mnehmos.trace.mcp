@@ -105,7 +105,9 @@ export class TypeScriptParser implements LanguageParser {
   // ==========================================================================
 
   async extractSchemas(options: ExtractOptions): Promise<ProducerSchema[]> {
-    console.log(`[TypeScript] Scanning: ${options.rootDir}`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[TypeScript] Scanning: ${options.rootDir}`);
+    }
 
     const project = new Project({
       tsConfigFilePath: undefined,
@@ -156,7 +158,9 @@ export class TypeScriptParser implements LanguageParser {
       schemas.push(...exportedSchemas);
     }
 
-    console.log(`[TypeScript] Found ${schemas.length} tool definitions`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[TypeScript] Found ${schemas.length} tool definitions`);
+    }
     return schemas;
   }
 
@@ -187,7 +191,9 @@ export class TypeScriptParser implements LanguageParser {
     const args = callExpr.getArguments();
 
     if (args.length < 3) {
-      console.warn(`[TypeScript] Skipping tool call with insufficient args at ${filePath}:${callExpr.getStartLineNumber()}`);
+      if (process.env.DEBUG_TRACE_MCP) {
+        console.error(`[TypeScript] Skipping tool call with insufficient args at ${filePath}:${callExpr.getStartLineNumber()}`);
+      }
       return null;
     }
 
@@ -241,7 +247,9 @@ export class TypeScriptParser implements LanguageParser {
         // Check if this matches a known registry pattern
         const pattern = REGISTRY_PATTERNS.find(p => p.name === varName);
         if (pattern && initializer && Node.isObjectLiteralExpression(initializer)) {
-          console.log(`[TypeScript] Found registry pattern: ${varName}`);
+          if (process.env.DEBUG_TRACE_MCP) {
+            console.error(`[TypeScript] Found registry pattern: ${varName}`);
+          }
           const registrySchemas = this.parseRegistryObject(initializer, pattern, filePath);
           schemas.push(...registrySchemas);
           return; // Found, skip to next
@@ -251,7 +259,9 @@ export class TypeScriptParser implements LanguageParser {
         if (initializer && Node.isObjectLiteralExpression(initializer)) {
           const inferredSchemas = this.inferRegistryFromShape(initializer, varName, filePath);
           if (inferredSchemas.length > 0) {
-            console.log(`[TypeScript] Inferred registry from shape: ${varName} (${inferredSchemas.length} tools)`);
+            if (process.env.DEBUG_TRACE_MCP) {
+              console.error(`[TypeScript] Inferred registry from shape: ${varName} (${inferredSchemas.length} tools)`);
+            }
             schemas.push(...inferredSchemas);
           }
         }
@@ -365,7 +375,9 @@ export class TypeScriptParser implements LanguageParser {
     const firstShape = this.detectToolDefinitionShape(firstInit);
     if (!firstShape) return schemas;
 
-    console.log(`[TypeScript] Detected tool definition shape in ${varName}: ${JSON.stringify(firstShape)}`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[TypeScript] Detected tool definition shape in ${varName}: ${JSON.stringify(firstShape)}`);
+    }
 
     // Parse all entries using detected shape
     for (const prop of props) {
@@ -788,7 +800,9 @@ export class TypeScriptParser implements LanguageParser {
   // ==========================================================================
 
   async traceUsage(options: TraceOptions): Promise<ConsumerSchema[]> {
-    console.log(`[TypeScript] Tracing: ${options.rootDir}`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[TypeScript] Tracing: ${options.rootDir}`);
+    }
 
     const project = new Project({
       skipAddingFilesFromTsConfig: true,
@@ -814,7 +828,9 @@ export class TypeScriptParser implements LanguageParser {
       schemas.push(...fileSchemas);
     }
 
-    console.log(`[TypeScript] Found ${schemas.length} tool calls`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[TypeScript] Found ${schemas.length} tool calls`);
+    }
     return schemas;
   }
 
@@ -1125,12 +1141,14 @@ export class TypeScriptParser implements LanguageParser {
       const isOptional = prop.isOptional();
       const isReadonly = propDecl ? this.isPropertyReadonly(propDecl) : false;
       const jsDocInfo = propDecl ? this.getJSDocInfo(propDecl) : { description: undefined, deprecated: false };
-      
+
       // Check for nullable types
       const { baseType, isNullable, hasUndefined } = this.analyzeNullability(propType);
-      
-      const normalizedType = this.convertTypeToNormalized(baseType, propType);
-      
+
+      // Start with interface name in visitingTypes to prevent infinite recursion
+      const visitingTypes = new Set<string>([name]);
+      const normalizedType = this.convertTypeToNormalized(baseType, visitingTypes);
+
       properties[propName] = {
         type: normalizedType,
         optional: isOptional || hasUndefined,
@@ -1256,7 +1274,8 @@ export class TypeScriptParser implements LanguageParser {
   private extractPropertiesFromType(
     type: Type,
     properties: Record<string, PropertyDef>,
-    required: string[]
+    required: string[],
+    visitingTypes: Set<string> = new Set()
   ): void {
     for (const prop of type.getProperties()) {
       const propName = prop.getName();
@@ -1264,14 +1283,14 @@ export class TypeScriptParser implements LanguageParser {
       const propType = prop.getValueDeclaration()
         ? prop.getValueDeclarationOrThrow().getType()
         : prop.getDeclaredType();
-      
+
       const isOptional = prop.isOptional();
       const isReadonly = propDecl ? this.isPropertyReadonly(propDecl) : false;
       const jsDocInfo = propDecl ? this.getJSDocInfo(propDecl) : { description: undefined, deprecated: false };
-      
+
       const { baseType, isNullable, hasUndefined } = this.analyzeNullability(propType);
-      const normalizedType = this.convertTypeToNormalized(baseType, propType);
-      
+      const normalizedType = this.convertTypeToNormalized(baseType, visitingTypes);
+
       properties[propName] = {
         type: normalizedType,
         optional: isOptional || hasUndefined,
@@ -1392,10 +1411,10 @@ export class TypeScriptParser implements LanguageParser {
    * - References: named interfaces
    *
    * @param type - The ts-morph Type to convert
-   * @param originalType - Optional original type before nullability analysis
+   * @param visitingTypes - Set of type names currently being visited (for cycle detection)
    * @returns NormalizedType representation
    */
-  private convertTypeToNormalized(type: Type, originalType?: Type): NormalizedType {
+  private convertTypeToNormalized(type: Type, visitingTypes: Set<string> = new Set()): NormalizedType {
     const typeToUse = type;
     
     // Check for primitives
@@ -1430,7 +1449,7 @@ export class TypeScriptParser implements LanguageParser {
       if (elementType) {
         return {
           kind: 'array',
-          element: this.convertTypeToNormalized(elementType),
+          element: this.convertTypeToNormalized(elementType, visitingTypes),
         };
       }
       return { kind: 'array', element: { kind: 'unknown' } };
@@ -1450,8 +1469,8 @@ export class TypeScriptParser implements LanguageParser {
     if (typeToUse.isUnion()) {
       const variants = typeToUse.getUnionTypes()
         .filter(t => !t.isNull() && !t.isUndefined())
-        .map(t => this.convertTypeToNormalized(t));
-      
+        .map(t => this.convertTypeToNormalized(t, visitingTypes));
+
       if (variants.length === 0) {
         return { kind: 'unknown' };
       }
@@ -1460,11 +1479,11 @@ export class TypeScriptParser implements LanguageParser {
       }
       return { kind: 'union', variants };
     }
-    
+
     // Check for intersection types
     if (typeToUse.isIntersection()) {
       const members = typeToUse.getIntersectionTypes()
-        .map(t => this.convertTypeToNormalized(t));
+        .map(t => this.convertTypeToNormalized(t, visitingTypes));
       return { kind: 'intersection', members };
     }
     
@@ -1474,30 +1493,52 @@ export class TypeScriptParser implements LanguageParser {
       const symbol = typeToUse.getSymbol();
       if (symbol) {
         const name = symbol.getName();
-        // Skip built-in types
+        // Skip built-in types but check for circular references
         if (name !== '__type' && name !== 'Array' && name !== 'Date') {
-          // For now, inline the properties for object types
+          // Check for circular reference - already visiting this type
+          if (visitingTypes.has(name)) {
+            return { kind: 'ref', name };
+          }
+          // Add to visiting set
+          visitingTypes.add(name);
         }
       }
-      
+
       // Extract properties for inline object type
       const properties: Record<string, PropertyDef> = {};
       const required: string[] = [];
-      
+
       for (const prop of typeToUse.getProperties()) {
         const propName = prop.getName();
         const propDecl = prop.getDeclarations()[0];
         const propType = prop.getValueDeclaration()
           ? prop.getValueDeclarationOrThrow().getType()
           : prop.getDeclaredType();
-        
+
         const isOptional = prop.isOptional();
         const isReadonly = propDecl ? this.isPropertyReadonly(propDecl) : false;
         const jsDocInfo = propDecl ? this.getJSDocInfo(propDecl) : { description: undefined, deprecated: false };
-        
+
+        // Check for circular reference in property type
+        const propSymbol = propType.getSymbol();
+        if (propSymbol && visitingTypes.has(propSymbol.getName())) {
+          properties[propName] = {
+            type: { kind: 'ref', name: propSymbol.getName() },
+            optional: isOptional,
+            nullable: false,
+            readonly: isReadonly,
+            deprecated: jsDocInfo.deprecated,
+            description: jsDocInfo.description,
+          };
+          if (!isOptional) {
+            required.push(propName);
+          }
+          continue;
+        }
+
         const { baseType, isNullable, hasUndefined } = this.analyzeNullability(propType);
-        const normalizedPropType = this.convertTypeToNormalized(baseType, propType);
-        
+        const normalizedPropType = this.convertTypeToNormalized(baseType, visitingTypes);
+
         properties[propName] = {
           type: normalizedPropType,
           optional: isOptional || hasUndefined,
@@ -1506,12 +1547,12 @@ export class TypeScriptParser implements LanguageParser {
           deprecated: jsDocInfo.deprecated,
           description: jsDocInfo.description,
         };
-        
+
         if (!isOptional && !hasUndefined) {
           required.push(propName);
         }
       }
-      
+
       return {
         kind: 'object',
         schema: {

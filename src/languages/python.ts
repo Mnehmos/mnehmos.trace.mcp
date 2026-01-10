@@ -21,7 +21,9 @@ export class PythonParser implements LanguageParser {
   // ==========================================================================
 
   async extractSchemas(options: ExtractOptions): Promise<ProducerSchema[]> {
-    console.log(`[Python] Scanning: ${options.rootDir}`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[Python] Scanning: ${options.rootDir}`);
+    }
 
     const patterns = options.include || this.filePatterns;
     const excludePatterns = options.exclude || ['**/node_modules/**', '**/dist/**', '**/__pycache__/**', '**/venv/**', '**/.venv/**'];
@@ -35,7 +37,9 @@ export class PythonParser implements LanguageParser {
       schemas.push(...fileSchemas);
     }
 
-    console.log(`[Python] Found ${schemas.length} tool definitions`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[Python] Found ${schemas.length} tool definitions`);
+    }
     return schemas;
   }
 
@@ -243,7 +247,9 @@ export class PythonParser implements LanguageParser {
   // ==========================================================================
 
   async traceUsage(options: TraceOptions): Promise<ConsumerSchema[]> {
-    console.log(`[Python] Tracing: ${options.rootDir}`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[Python] Tracing: ${options.rootDir}`);
+    }
 
     const patterns = options.include || this.filePatterns;
     const excludePatterns = options.exclude || ['**/node_modules/**', '**/dist/**', '**/__pycache__/**', '**/venv/**', '**/.venv/**'];
@@ -256,7 +262,9 @@ export class PythonParser implements LanguageParser {
       schemas.push(...fileSchemas);
     }
 
-    console.log(`[Python] Found ${schemas.length} tool calls`);
+    if (process.env.DEBUG_TRACE_MCP) {
+      console.error(`[Python] Found ${schemas.length} tool calls`);
+    }
     return schemas;
   }
 

@@ -77,7 +77,7 @@ class PatternRegistry {
 
     // Warn on overwrite in debug mode
     if (this.matchers.has(matcher.name) && process.env.DEBUG_TRACE_MCP) {
-      console.warn(
+      console.error(
         `[PatternRegistry] Overwriting matcher: ${matcher.name}`
       );
     }
@@ -92,7 +92,7 @@ class PatternRegistry {
     );
 
     if (process.env.DEBUG_TRACE_MCP) {
-      console.log(`[PatternRegistry] Registered: ${matcher.name} (${matcher.framework})`);
+      console.error(`[PatternRegistry] Registered: ${matcher.name} (${matcher.framework})`);
     }
   }
 

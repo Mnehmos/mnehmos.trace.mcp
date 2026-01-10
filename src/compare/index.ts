@@ -32,8 +32,10 @@ export function compareSchemas(
   // Default to producer_to_consumer (API response pattern)
   const direction = options.direction || 'producer_to_consumer';
 
-  console.log(`[Comparator] Comparing ${producers.length} producers vs ${consumers.length} consumers`);
-  console.log(`[Comparator] Direction: ${direction}`);
+  if (process.env.DEBUG_TRACE_MCP) {
+    console.error(`[Comparator] Comparing ${producers.length} producers vs ${consumers.length} consumers`);
+    console.error(`[Comparator] Direction: ${direction}`);
+  }
 
   const matches: Match[] = [];
   const mismatches: Mismatch[] = [];
@@ -327,8 +329,10 @@ export async function compareDirectories(
   const { extractProducerSchemas } = await import('../extract/index.js');
   const { traceConsumerUsage } = await import('../trace/index.js');
   
-  console.log(`\n[Compare] Backend: ${backendDir}`);
-  console.log(`[Compare] Frontend: ${frontendDir}\n`);
+  if (process.env.DEBUG_TRACE_MCP) {
+    console.error(`[Compare] Backend: ${backendDir}`);
+    console.error(`[Compare] Frontend: ${frontendDir}`);
+  }
   
   const producers = await extractProducerSchemas({ rootDir: backendDir });
   const consumers = await traceConsumerUsage({ rootDir: frontendDir });
