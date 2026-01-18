@@ -129,12 +129,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: 'extract_schemas',
-        description: 'Extract API schemas from source code. Supports: MCP tools (Zod), OpenAPI/Swagger specs, GraphQL SDL, tRPC routers, REST endpoints (Express/Fastify), gRPC/Protobuf services, Python (FastAPI/Flask decorators), and Go (Gin/Chi handlers). Auto-detects format from file contents.',
+        description: 'Extract API schemas from source code. Supports: MCP tools (Zod), OpenAPI/Swagger specs, GraphQL SDL, tRPC routers, REST endpoints (Express/Fastify), gRPC/Protobuf services, Python (FastAPI/Flask decorators), Go (Gin/Chi handlers), and SQL DDL (CREATE TABLE, CREATE TYPE). Auto-detects format from file contents.',
         inputSchema: {
           type: 'object',
           properties: {
             rootDir: { type: 'string', description: 'Root directory of server/API source code' },
-            include: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to include (e.g., **/*.ts, **/*.py, **/*.go, **/*.proto)' },
+            include: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to include (e.g., **/*.ts, **/*.py, **/*.go, **/*.proto, **/*.sql)' },
             exclude: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to exclude' },
           },
           required: ['rootDir'],
@@ -142,7 +142,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'extract_file',
-        description: 'Extract API schemas from a single file. Supports TypeScript, Python, Go, Protobuf, GraphQL SDL, and OpenAPI JSON/YAML.',
+        description: 'Extract API schemas from a single file. Supports TypeScript, Python, Go, Protobuf, GraphQL SDL, OpenAPI JSON/YAML, and SQL DDL.',
         inputSchema: {
           type: 'object',
           properties: {

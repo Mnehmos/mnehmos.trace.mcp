@@ -9,6 +9,7 @@ import { registerAdapter } from './registry.js';
 import { MCPAdapter } from './mcp.js';
 import { OpenAPIAdapter } from './openapi/index.js';
 import { TRPCAdapter } from './trpc/index.js';
+import { SQLAdapter } from './sql/index.js';
 
 /**
  * Bootstrap the adapter registry with all built-in adapters.
@@ -19,6 +20,7 @@ import { TRPCAdapter } from './trpc/index.js';
  * - **MCP Adapter** (`mcp`): For MCP tool schemas
  * - **OpenAPI Adapter** (`openapi`): For OpenAPI/Swagger specifications
  * - **tRPC Adapter** (`trpc`): For tRPC router definitions
+ * - **SQL Adapter** (`sql_ddl`): For SQL DDL (CREATE TABLE, CREATE TYPE)
  *
  * Multiple calls are safe due to last-wins replacement semantics.
  *
@@ -44,6 +46,9 @@ export function bootstrapAdapters(): void {
 
   // Register tRPC adapter for tRPC router definitions
   registerAdapter(new TRPCAdapter());
+
+  // Register SQL adapter for SQL DDL (CREATE TABLE, CREATE TYPE)
+  registerAdapter(new SQLAdapter());
 
   if (process.env.DEBUG_TRACE_MCP) {
     console.error('[AdapterBootstrap] Built-in adapters registered');
