@@ -21,7 +21,7 @@
  * 
  * ## Available Exports
  * 
- * - **Adapters**: MCPAdapter
+ * - **Adapters**: MCPAdapter, OpenAPIAdapter, TRPCAdapter, SQLAdapter
  * - **Registry Functions**: registerAdapter, getAdapter, hasAdapter, listAdapters
  * - **High-Level Functions**: extractSchema, listSchemas, getAdapterForRef
  * - **Bootstrap**: bootstrapAdapters
@@ -37,6 +37,7 @@
 export { MCPAdapter } from './mcp.js';
 export { OpenAPIAdapter, parseOpenAPIRef, type OpenAPIRef } from './openapi/index.js';
 export { TRPCAdapter, parseTRPCRef, type TRPCRef } from './trpc/index.js';
+export { SQLAdapter, DDLParser, parseDDL, SQL_TYPE_MAP, type SQLTable, type SQLColumn, type SQLEnum, type SQLDialect } from './sql/index.js';
 
 // ============================================================================
 // Registry Functions

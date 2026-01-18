@@ -27,6 +27,7 @@ export type SchemaSourceKind =
   | "json_schema"
   | "typebox"
   // Database Layer
+  | "sql_ddl"
   | "prisma"
   | "drizzle"
   | "typeorm"
