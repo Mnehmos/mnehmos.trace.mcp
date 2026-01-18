@@ -129,12 +129,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: 'extract_schemas',
-        description: 'Extract MCP tool definitions (ProducerSchemas) from server source code. Scans for server.tool() calls and parses their Zod schemas.',
+        description: 'Extract API schemas from source code. Supports: MCP tools (Zod), OpenAPI/Swagger specs, GraphQL SDL, tRPC routers, REST endpoints (Express/Fastify), gRPC/Protobuf services, Python (FastAPI/Flask decorators), and Go (Gin/Chi handlers). Auto-detects format from file contents.',
         inputSchema: {
           type: 'object',
           properties: {
-            rootDir: { type: 'string', description: 'Root directory of MCP server source code' },
-            include: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to include' },
+            rootDir: { type: 'string', description: 'Root directory of server/API source code' },
+            include: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to include (e.g., **/*.ts, **/*.py, **/*.go, **/*.proto)' },
             exclude: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to exclude' },
           },
           required: ['rootDir'],
@@ -142,22 +142,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'extract_file',
-        description: 'Extract MCP tool definitions from a single TypeScript file.',
+        description: 'Extract API schemas from a single file. Supports TypeScript, Python, Go, Protobuf, GraphQL SDL, and OpenAPI JSON/YAML.',
         inputSchema: {
           type: 'object',
           properties: {
-            filePath: { type: 'string', description: 'Path to a TypeScript file' },
+            filePath: { type: 'string', description: 'Path to source file (any supported language)' },
           },
           required: ['filePath'],
         },
       },
       {
         name: 'trace_usage',
-        description: 'Trace how client code uses MCP tools. Finds callTool() invocations and tracks which properties are accessed on results.',
+        description: 'Trace how client code calls APIs. Detects: MCP callTool(), fetch/axios HTTP calls, Apollo Client hooks (useQuery/useMutation), Python requests/aiohttp/httpx, and tracks property access patterns on responses.',
         inputSchema: {
           type: 'object',
           properties: {
-            rootDir: { type: 'string', description: 'Root directory of consumer source code' },
+            rootDir: { type: 'string', description: 'Root directory of client/consumer source code' },
             include: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to include' },
             exclude: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to exclude' },
           },
@@ -166,23 +166,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'trace_file',
-        description: 'Trace MCP tool usage in a single TypeScript file.',
+        description: 'Trace API usage in a single file. Detects HTTP calls, GraphQL queries, MCP tool calls, and response property access.',
         inputSchema: {
           type: 'object',
           properties: {
-            filePath: { type: 'string', description: 'Path to a TypeScript file' },
+            filePath: { type: 'string', description: 'Path to client source file' },
           },
           required: ['filePath'],
         },
       },
       {
         name: 'compare',
-        description: 'Full analysis pipeline: extract producer schemas, trace consumer usage, and compare them to find mismatches. Returns a detailed report.',
+        description: 'Full contract validation: extract producer schemas, trace consumer usage, compare for mismatches. Works across languages (TS↔Python, Go↔TS, etc.) and protocols (REST, GraphQL, gRPC, MCP).',
         inputSchema: {
           type: 'object',
           properties: {
-            producerDir: { type: 'string', description: 'Path to MCP server source directory' },
-            consumerDir: { type: 'string', description: 'Path to consumer/client source directory' },
+            producerDir: { type: 'string', description: 'Path to API/server source directory' },
+            consumerDir: { type: 'string', description: 'Path to client source directory' },
             format: { type: 'string', enum: ['json', 'markdown', 'summary'], description: 'Output format' },
             strict: { type: 'boolean', description: 'Strict mode for comparison' },
             direction: { type: 'string', enum: ['producer_to_consumer', 'consumer_to_producer', 'bidirectional'], description: 'Data flow direction (default: producer_to_consumer)' },
@@ -192,12 +192,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'scaffold_consumer',
-        description: 'Generate consumer code from a producer schema. Creates TypeScript functions, React hooks, or Zustand actions that correctly call MCP tools.',
+        description: 'Generate type-safe client code from API schemas. Creates TypeScript functions, React hooks, or Zustand actions with full type inference.',
         inputSchema: {
           type: 'object',
           properties: {
-            producerDir: { type: 'string', description: 'Path to MCP server source directory' },
-            toolName: { type: 'string', description: 'Name of the tool to scaffold consumer for' },
+            producerDir: { type: 'string', description: 'Path to API source directory' },
+            toolName: { type: 'string', description: 'Name of the endpoint/tool to scaffold' },
             target: { type: 'string', enum: ['typescript', 'javascript', 'react-hook', 'zustand-action'], description: 'Output target format' },
             includeErrorHandling: { type: 'boolean', description: 'Include try/catch error handling' },
             includeTypes: { type: 'boolean', description: 'Include TypeScript type definitions' },
@@ -207,12 +207,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'scaffold_producer',
-        description: 'Generate producer schema stub from consumer usage. Creates MCP tool definition based on how client code calls it.',
+        description: 'Generate API stubs from client usage patterns. Infers schema from how client code calls the API.',
         inputSchema: {
           type: 'object',
           properties: {
-            consumerDir: { type: 'string', description: 'Path to consumer source directory' },
-            toolName: { type: 'string', description: 'Name of the tool to scaffold producer for' },
+            consumerDir: { type: 'string', description: 'Path to client source directory' },
+            toolName: { type: 'string', description: 'Name of the endpoint/tool to scaffold' },
             includeHandler: { type: 'boolean', description: 'Include handler stub' },
           },
           required: ['consumerDir', 'toolName'],
